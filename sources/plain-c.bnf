@@ -1,0 +1,65 @@
+ $accept: Start $end
+ BeginStart: %empty
+ Start: BeginStart Functions
+ Functions: %empty
+          | Functions Function
+ BeginFunction: Type tID
+ FunctionParameters: %empty
+                   | FunctionParameter tCOMA FunctionParameters
+                   | FunctionParameter
+ FunctionParameter: Type tID
+ Function: BeginFunction tPARENT_OPEN FunctionParameters tPARENT_CLOSE BasicBloc
+         | BeginFunction tPARENT_OPEN FunctionParameters tPARENT_CLOSE tSEMICOLON
+ BeginBasicBloc: %empty
+ BasicBloc: BeginBasicBloc tBRAC_OPEN Declarations Operations tBRAC_CLOSE
+ Printf: tPRINTF tPARENT_OPEN ExprArith tPARENT_CLOSE
+ FunctionParametersCall: %empty
+                       | FunctionParameterCall tCOMA FunctionParametersCall
+                       | FunctionParameterCall
+ FunctionParameterCall: ExprArith
+ Return: tRETURN ExprArith
+ CallFunction: tID tPARENT_OPEN FunctionParametersCall tPARENT_CLOSE
+ Declarations: %empty
+             | Declarations Type Variables tSEMICOLON
+ Variables: Variable
+          | Variable tCOMA Variables
+ Variable: tID
+         | AffectationDec
+ AffectationDec: tID Affectation
+ AffectationOp: tID Affectation
+ Affectation: tEQUAL ExprArith
+ If: tIF tPARENT_OPEN Condition tPARENT_CLOSE BlocOp
+ Else: tELSE BlocOp
+ IfElse: If
+       | If Else
+ ComparaisonOperator: tEQUAL_BOOLEAN
+                    | tSMALLER
+                    | tGREATER
+ Condition: ExprArith ComparaisonOperator ExprArith
+          | ExprArith ComparaisonOperator tEQUAL ExprArith
+          | ExprArith tDIFFERENT ExprArith
+ BeginWhile: %empty
+ WhileLoop: BeginWhile tWHILE tPARENT_OPEN Condition tPARENT_CLOSE BlocOp
+ Operations: %empty
+           | Operations Operation
+ Operation: AffectationOp tSEMICOLON
+          | Printf tSEMICOLON
+          | CallFunction tSEMICOLON
+          | Return tSEMICOLON
+          | IfElse
+          | WhileLoop
+ BlocOp: BasicBloc
+       | Operation
+ OperatorArithPlusMinus: tPLUS
+                       | tMINUS
+ OperatorArithMultDiv: tMULT
+                     | tDIV
+ ExprArith: tID
+          | tNUMBER
+          | tMINUS tNUMBER
+          | ExprArith OperatorArithPlusMinus ExprArith
+          | ExprArith OperatorArithMultDiv ExprArith
+          | tPARENT_OPEN ExprArith tPARENT_CLOSE
+          | CallFunction
+ Type: tINT
+     | tCONST tINT

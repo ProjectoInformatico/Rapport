@@ -1,0 +1,47 @@
+
+% redefinition de la commande \maketitle
+\renewcommand\maketitle{
+
+    \begin{titlepage}
+        
+         \includegraphics[scale=0.5]{images/logo.png} % Logo en haut à droite
+        
+        \begin{minipage}{0.6\textwidth}
+            \begin{flushleft} \large
+                4IR - INSA Toulouse
+            \end{flushleft}
+        \end{minipage}
+        \begin{minipage}{0.4\textwidth}
+            \begin{flushright} \large
+                Année 2014 - 2015
+            \end{flushright}
+        \end{minipage}
+        
+        ~ \\[2cm]
+        \begin{center}
+            \textsc{\LARGE \NomProjet}\\[2cm]
+            
+            \rule{\linewidth}{0.5mm} \\[0.4cm]
+            { \huge \bfseries \Titre \\[0.4cm] }
+            \rule{\linewidth}{0.5mm} \\[1.5cm]
+            
+            \begin{minipage}{0.4\textwidth}
+                \begin{flushleft} \large
+                    Jérémie \textsc{Boutoille} \\[2cm]
+                \end{flushleft}
+            \end{minipage}
+            \begin{minipage}{0.4\textwidth}
+                \begin{flushright} \large
+                    David \textsc{Livet} \\[2cm]
+                \end{flushright}
+            \end{minipage}
+            
+            \vfill
+        
+            {\large \Date}
+            
+        \end{center}
+        
+    \end{titlepage}
+
+}

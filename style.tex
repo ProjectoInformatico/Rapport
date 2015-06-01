@@ -1,0 +1,35 @@
+% dossier avec toutes les images
+\graphicspath{{images/}}
+
+% interligne 1.5
+\onehalfspacing
+
+% marges
+\geometry{hmargin=2.5cm, vmargin=2.5cm}
+
+% modification des en-têtes et pieds de page
+\renewcommand{\headrulewidth}{0pt} % enlève les traits
+\renewcommand{\footrulewidth}{0pt} % tous moches
+\chead{\textcolor{Gray}{\small \Titre}} % Mets le titre du document centré en gris 
+\rhead{} % enlève les N°
+\lhead{} % de chapitre
+
+\cfoot{\thepage} % N° de page centré
+
+
+\newcommand{\includecode}[3][c]{
+    \begin{listing}
+        \inputminted{#1}{#2}
+        \caption{#3}
+    \end{listing}
+}
+
+\newcommand{\annexecode}[4]{
+    \subsection{#1} \label{#2}
+    \inputminted[breaklines=true]{#3}{#4}
+}
+
+\newcommand{\listingref}[1]{\textit{\hyperref[#1]{listing} \ref{#1}}}
+
+\newcommand{\figureref}[1]{\textit{\hyperref[#1]{figure} \ref{#1}}}
+

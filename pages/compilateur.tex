@@ -1,0 +1,163 @@
+
+\section{Compilateur et interpréteur}
+
+    Cette partie présente les spécificités de notre compilateur et de notre interpréteur. Ces derniers utilisent l'analyseur lexical Flex\footnote{\url{http://flex.sourceforge.net/}} et l'analyseur grammatical Bison\footnote{\url{http://www.gnu.org/software/bison/}}.
+
+    \subsection{Compilateur}
+
+    \subsubsection{Notre langage C-simplifié}
+
+    Le but de ce projet est d'offrir aux développeurs \textbf{les outils} (compilateurs, interpréteurs) et support matériel (FPGA) afin d'exécuter leur algorithme dans notre nouveau langage. Nous allons nous basé sur le \textbf{langage C} afin d'obtenir notre langage C-\textbf{simplifié} (exemple avec le \listingref{code:c-exemple}). 
+
+En bref :
+
+\begin{itemize}
+
+    \item Le programme possède \textbf{une fonction principale} \texttt{main} sans argument. La valeur de retour n'est pas prise en compte pour le moment. La fonction est appelée par défaut.
+    
+    \item L'ensemble du code est contenu à l'intérieur du bloc \texttt{main} délimité entre accolades.
+    
+    \item Un bloc est séparé en deux zones : 
+    
+    \begin{itemize}
+    
+        \item la zone déclarative : l'ensemble des variables utilisé à l'intérieur du bloc \textbf{doivent être déclaré} (\texttt{int maVariable;}). Le type est restreint aux entiers \texttt{int} et \texttt{const int}. Elles peuvent être instanciées directement. 
+        
+        \item la zone des opérations où est décrit l'algorithme du programme. 
+        
+    \end{itemize}
+    
+    \item Les opérations de base sur les variables : addition, multiplication, soustraction, division, affectation, copie.
+    
+    \item Les opérations de comparaison : supérieur, inférieur, égale.
+    
+    \item Les structures conditionnelles : \texttt{if}, \texttt{else if}, \texttt{else}.
+    
+    \item Les structures de boucle : \texttt{while}.
+    
+    \item Une fonction particulière \texttt{printf(int var)} permettant d'afficher le contenu de la variable.
+    
+    \item Il est possible de déclarer des fonctions ainsi que des prototypes de fonction. Leur arguments et la valeur de retour sont pris en compte.
+    
+\end{itemize}
+
+
+Le \listingref{code:bnf} représente la syntaxe du langage, le code est issu du fichier de debug de l'analyseur syntaxique (section \ref{syntaxique}).
+
+    \subsubsection{Principe et fonctionnement général}
+Le compilateur à partir d'un code écrit en C-simplifié effectuera les opérations suivantes :
+\begin{enumerate}
+\item vérification \textbf{lexicale} du code source : permettant de détecter les différents mots clés du langage,
+\item analyse \textbf{syntaxique} : pour chaque mot clé, il va analyser dans quel cadre il est utilisé et s'il correspond à la grammaire défini pour le langage,
+\item génération du \textbf{code assembleur} : après l'étape d'analyse syntaxique il va traduire le code source en instructions assembleur compréhensibles pour l'interpréteur (section \ref{interpreteur}) ou un byte-code compréhensible par notre micro-processeur (section \ref{micro-processeur}).
+\end{enumerate}
+
+
+    \subsubsection{L'analyse lexicale}
+    
+    L'analyse lexicale est faite à l'aide de Flex\footnote{\url{http://flex.sourceforge.net/}}. Ce dernier est simplement chargé d'analyser le code source à compiler et de renvoyer des \textbf{tokens}. Les \textbf{tokens} sont les mots clefs du langage, en voici une liste non exhaustive :
+    
+    \begin{itemize}
+    \item \texttt{const - tCONST}
+    \item \texttt{int - tINT}
+    \item \texttt{if - tIF}
+    \item \texttt{else - tELSE}
+    \item \texttt{while - tWHILE}
+    \item \texttt{return - tRETURN}
+    \end{itemize}
+    
+    Un token peut aussi être reconnu à l'aide d'expression régulière. Par exemple, le nom des variables ou des fonctions correspondent au token \texttt{tID} et sont reconnus à l'aide de l'expression régulière \texttt{[a-zA-Z][a-zA-Z0-9\_]*}. 
+    
+    Les tokens sont passé à entrée de l'analyseur syntaxique (section \ref{syntaxique}). Pour les tokens reconnus avec une expression régulière, la chaine reconnue est passé à l'analyseur syntaxique via la variable \texttt{yylval}. 
+    
+    \subsubsection{L'analyse syntaxique} \label{syntaxique}
+    
+    L'analyse syntaxique est faite à l'aide de Bison\footnote{\url{http://www.gnu.org/software/bison/}}. Il prend en entrée les tokens emis par l'analyse lexicale puis vérifie que ceux ci suivent une grammaire donnée. Il fonctionne en deux temps : il \textit{shift} les tokens (ie il les empile) et les \textit{réduit} (ie enlever de la pile) lorsqu'une règle est reconnue. Quand la règle est reconnue, il appelle le code source C spécifique à la règle. Une règle peut avoir une valeur de retour, ceci est très pratique pour définir des règles génériques utilisables dans plusieurs autres règles.
+    
+    Nos règles sont principalement composées d'appels à l'instruction manager (voir section \ref{instruction_manager}).
+    
+    \subsubsection{Instruction manager} \label{instruction_manager}
+
+    Dans le but de gérer les instructions efficacement, nous avons décidé de créer une librairie C réutilisable : l'\textbf{instruction manager} \footnote{\url{https://github.com/ProjectoInformatico/InstructionManager}}. Le parser insère des instructions dans l'\textbf{instruction manager}, celles ci sont alors disposées dans une liste chaînée. Il est alors très facile de générer le bytecode ou d'écrire sous forme textuelle les instructions dans un fichier.
+    
+    Nous avons utilisé l'\textbf{instruction manager} pour introduire des instructions virtuelles tel que les labels. L'\textbf{instruction manager} contient une table de hashage de label, lors de l'ajout d'un jump (conditionel ou non) il faut spécifier ce label. Lors de la génération du bytecode, il est facile de trouver à quel endroit des instructions se trouve le label auquel on fait référence et donc de calculer la taille du jump à réaliser.
+
+    L'\textbf{instruction manager} est utilisé aussi bien dans le compilateur que dans l'interpréteur. Dans les deux cas, on insère les instructions en fonction du fichier lu et on en fait ce que bon nous semble.
+
+    Le \listingref{code:instruction_manager} montre un exemple de d'utilisation basique de l'\textbf{instruction manager}. Le \listingref{code:instruction_manager_interpreto} montre son utilisation dans l'interpréteur.
+
+
+    \subsubsection{Labels, conditions et boucles}
+
+    % parler de comment on a fait remonter les labels et des labels en général
+    Afin de gérer au mieux les conditions et boucles, nous avons choisi d'introduire des labels.
+    
+    Le \listingref{code:if_else} montre la manière dont nous avons implémenté les blocs if/else à l'aide des labels. Au moment de l'insertion de l'instruction \texttt{jmf}, un label est demandé mais n'est pas émis de suite, il est cependant retourné via la variable \texttt{\$\$}. Ce label correspond à la fin du block \texttt{if}, et donc au début du bloc \texttt{else}. Lorsque le corp du \texttt{if} est généré, on demande un label qui correspond à la fin du \texttt{else} et on émet un \texttt{jump} vers celui ci et enfin le label retourné par la règle \texttt{Condition}. Lorsque le corps du \texttt{else} est déroulé, on émet le label qui correspond à sa fin et qui retourné par la règle \texttt{If}.
+    
+    Cette technique évite l'utilisation d'une pile et permet d'imbriquer des conditions sans se poser de question. De plus, comme \texttt{BlocOp} autorise l'utilisation directe d'un \texttt{if} ou de tout autre opération (appel de fonction, boucle, affectation), le compilateur comprend les \texttt{elseif} et les conditions sans accolades.
+
+    De la même façon, pour la boucle \texttt{while}, un label est émis avant de dérouler le corps de la boucle. A la fin du corps, un \texttt{jump} vers le début du corps est émis ainsi qu'un label correspondant à la fin de la boucle (renvoyé par la règle \texttt{Condition}).
+
+    \subsubsection{Fonctions}
+
+    Pour gérer les variables locales aux fonctions, nous avons décidé d'introduire une pile à notre microprocesseur. On a donc ajouté deux registres : \texttt{bp} et \texttt{sp} :
+    
+    \begin{itemize}
+        \item \texttt{sp} - stack pointer : il contient l'adresse du haut de la pile
+        \item \texttt{bp} - base pointer : il contient l'adresse de la base de la pile dans la fonction courante
+    \end{itemize}
+    
+    A l'instar de \texttt{x86}, nous avons choisi d'introduire une convention d'appel par la pile et un prologue/épilogue dans les fonctions.
+    
+    La convention d'appel est simple : les arguments sont empilés en commençant par la fin (instruction \texttt{push}). Lors du \texttt{call}, l'adresse de retour est empilée et un \texttt{jump} vers la fonction est effectué.
+    
+    Le prologue consiste à empiler la valeur de \texttt{bp} (\texttt{push bp}) et à lui assigner comme valeur celle de \texttt{sp} (\texttt{cop bp, sp}). L'épilogue contient deux instructions : \texttt{leave} et \texttt{ret}. La première a pour but de déplacer \texttt{sp} à l'endroit où pointe \texttt{bp} puis d'assigner à \texttt{bp} la valeur stockée sur la pile. On a ainsi rétabli la stack frame de la fonction appelante. L'instruction \texttt{ret} prend l'adresse sur la pile et y saute : on est de retour dans la fonction appelante.
+    
+    Avec cette disposition de pile, les paramètres de la fonction se trouvent à \texttt{bp-3, bp-4, ...} et les variables locales à \texttt{bp+1, bp+2, ...}.
+
+    La valeur de retour est gérée à l'aide d'un nouveau registre : \texttt{rt}. Quand l'analyseur syntaxique trouve un \texttt{return} il rempli le registre \texttt{rt} avec le résultat de l'expression arithmétique passée en paramètre de \texttt{return}. Il émet ensuite un \texttt{jump} vers le label \texttt{function\_end} généré automatiquement avant l'épilogue de la fonction.
+
+    Pour ajouter le support des fonctions nous avons ajouté une table des fonctions. La table des fonctions est assimilable à la table des symboles, sauf qu'elle est spécifique aux fonctions. Chaque élément de cette table est une fonction, on y garde plusieurs choses :
+    
+    \begin{itemize}
+    \item une table des symboles pour les variables locales
+    \item une table des symboles pour les arguments
+    \item le nombre d'argument (il est défini soit par le prototype, soit par la fonction directement)
+    \item le nom de la fonction
+    \item le nombre de variables locales afin de libérer l'espace nécessaire lors du prologue
+    \end{itemize}
+    
+    Cette table est utile pour l'appel aux fonctions : il suffit de vérifier si la fonction existe dans la table et de vérifier que le nombre d'arguments passés correspond bien au nombre d'arguments attendus.
+    
+    Le listing \listingref{code:functionsexemple} montre un exemple de la compilation d'une fonction basique.
+    
+    \subsubsection{Améliorations}
+    
+        On pourrait imaginer faire de l'optimisation à l'aide de l'instruction manager. Il suffirait de détecter des patterns simples (dans un premier temps) pour remplacer ou enlever des instructions.
+        
+        Par exemple, il est très facile de trouver toutes les instructions du type \texttt{cop [bp+x], [bp+x]} et de les supprimer. On peut aussi détecter les \texttt{jump} faisant référence à un label se situant à l'instruction suivante afin de les supprimer.
+    
+\subsection{Interpréteur} \label{interpreteur}
+
+    \subsubsection{Fonctions disponibles}
+    
+        De base, l'interpréteur prend un fichier assembleur généré par le compilateur et l'exécute. Cependant, nous avons mis en place un mode interactif permettant de debugger le programme. Il est possible de faire de l'exécution instruction par instruction, d'afficher tout le contenu de la mémoire, d'afficher la valeur des registres et d'afficher le programme chargé.
+    
+    \subsubsection{Implémentation du CPU}
+
+        Le CPU est représenté par une structure contenant différents champs :
+        \begin{itemize}
+            \item une instance de l'instruction manager représentant la rom
+            \item la mémoire vive
+            \item les registres
+            \item un pointeur vers l'instruction courrante
+            \item un flag permettant de savoir si l'instruction \texttt{stop} a été rencontrée
+        \end{itemize}
+
+        La fonction la plus importante est \texttt{cpu\_exec\_instr}. Elle comporte un \texttt{switch/case} permettant l'exécution de chaque instruction en fonction de la manière dont elle est stockée dans l'instruction manager. 
+
+    \subsubsection{Améliorations}
+    
+        Nous avons pensé à ajouter plusieurs fonctionnalités à l'interpréteur, c'est surtout par manque de temps que nous ne l'avons pas fait.
+        
+        On pourrait ajouter la possibilité d'ajouter des \texttt{breakpoints} afin d'éviter l'exécution du programme pas à pas pour arriver à l'instruction intéressante. On pourrait aussi ajouter l'affichage des instructions en spécifiant la fonction. 

@@ -1,0 +1,85 @@
+
+\section{Micro-processeur} \label{micro-processeur}
+Afin de pouvoir exécuter le code assembleur de notre compilateur sur une puce FPGA, nous allons décrire en VHDL le comportement de notre micro-processeur. Il fonctionnera suivant les principes d'une architecture RISC avec cinq niveaux de pipeline. 
+
+\subsection{Organisation du projet}
+Pour décrire l'ensemble des composants de notre micro-processeur (unité arithmétique et logique, banc de mémoire ...) nous avons créé des \texttt{entity} générique. L'ensemble des composants est regroupé dans le dossier \texttt{sources/cores}. Chaque composants possède un test bench afin de vérifier son comportement. 
+
+Le code du micro-processeur utilisant les différents composant se trouve dans le dossier \texttt{sources/microprocesso}. Il possède en plus un fichier \texttt{common.ucf} permettant le mappage des ports du composant avec ceux de la carte pendant la phase de synthèse. 
+
+Le projet possède un \texttt{Makefile}. Il comporte différente règles correspondantes au cycle de conception : 
+\begin{itemize}
+\item simulation \textbf{fonctionnelle} : la commande \texttt{make binary/cores/alu/alu\_beh.isim} permet de compiler nos sources vhdl. \texttt{make binary/cores/alu/alu\_beh.runisim} de lancer \texttt{isim} pour jouer le test du composant \texttt{alu} dans cet exemple.
+\item simulation \textbf{temporelle} : la commande \texttt{binary/cores/alu/alu\_beh.timesim} permet de générer les fichiers spécifique à notre puce FPGA (à l'aide de la synthèse logique et placement et routage) et d'obtenir la fréquence maximal de notre programme. 
+\end{itemize}
+
+Dans la première phase nous allons chercher à vérifier si le comportement décrit dans les sources vhd respecte le comportement attendu. 
+
+Dans la seconde phase nous allons chercher à optimiser la fréquence maximal et le nombre de bascule utilisé.
+
+La commande \texttt{make} permet de lancer l'ensemble des phases.
+
+\subsection{Composants du micro-processeur}
+Le micro-processeur se compose de :
+\begin{itemize}
+\item une unité arithmétique et logique
+\item un banc de registre à double port de lecture
+\item une ram
+\item une rom
+\item quatres pipelines
+\item un program counter
+\item un module de gestion d'aléas
+\end{itemize}
+Nous allons détailler dans la suite l'ensemble des modules comportant des modifications, précisions ou améliorations par rapport à leur fonctionnement de base.
+
+\subsubsection{Unité arithmétique et logique}
+Ce composant permet de réaliser les opérations basiques (addition, multiplication, soustraction, division) sur les valeurs en entrée. Suivant les opérations, différents flags sont activés. 
+
+Nous avons choisi de suivre les règles suivantes pour coder les flags  : 
+\begin{itemize}
+\item \texttt{Z} zéro est actif lorsque la sortie est nulle
+\item \texttt{O} overflow est actif lorsqu'une opération sur deux nombres de même signe change de signe en sortie. Exemple 127 + 5 = -4 (O)
+\item \texttt{C} carry est actif lorsque la retenue de l'addition est perdue. Exemple lorsque de l'addition de deux nombres non signés : 255+1=0 (C)
+\item \texttt{N} négative est actif lorsque le retour est négatif.
+\end{itemize}
+
+\subsubsection{Pipeline}
+Ce composant va permettre de retenir les signaux en attendant le prochain front montant de l'horloge. Il est essentiel à la conception d'une architecture avec des pipelines. 
+
+Il possède un \texttt{rst} synchrone forçant les bits de sortie du pipeline à 0. Le \texttt{rst} correspond à l'emission d'une instruction \texttt{NOP}.
+
+\subsubsection{Program Counter}
+Il s'agit d'un multiplexeur permettant d'incrémenter l'entrée correspondant au pointeur d'instruction. 
+
+On peut également l'incrémenter d'un certain nombre afin d'effectuer un saut relatif. 
+
+\subsection{Chemin de donnée}
+Après avoir décrit et testé unitairement l'ensemble des composants de notre micro-processeur, nous allons les relier ensemble en suivant le schéma proposé.
+
+Par rapport au schéma initial nous avons fait trois améliorations : 
+\begin{enumerate}
+\item Ajout du \textbf{program counter} permettant l'implémentation des sauts relatifs.
+\item Module de gestion des aléas détaillé dans la section \ref{aleas}.
+\item Cablage des LEDs en sortie du micro-processeur détaillé dans la section \ref{led}.
+\end{enumerate}
+
+\subsubsection{Gestion des aléas}\label{aleas}
+La gestion des aléas nous permet d'exécuter deux instructions à la suite dont la deuxième dépend du résultat de la première. Il est impossible de les exécuter directement à cause de l'architecture en pipeline de notre micro-processeur. En effet, l'écriture au niveau du banc de donnée est effectif qu'au 5ème niveau de pipeline alors que la lecture se fait au niveau du second.
+
+Notre solution consiste à créer un nouveau composant se chargeant d'analyser les valeurs des pipelines 2 et 3 et injecter des \texttt{NOP} sur le pipeline 1 lorsqu'un conflit est détecté. 
+
+Par exemple pour l'instruction \texttt{AFC} suivi de \texttt{COP}, le 1er et le 2nd pipeline vont ajouté 1 \texttt{NOP} chacun. 
+
+
+\subsubsection{Sortie sur les LED}\label{led}
+Nous offrons la possibilité au sein de C-simplifié d'effectuer un PRINT sur une variable. Cette fonction est traduite par l'instruction \texttt{PRI @1;} dans notre assembleur. Nous allons ajouter dans notre jeu d'instruction un code opération correspondant à \texttt{PRI Ri : 0x09 Ri 00 00}. Cette instruction va récupérer la valeur du registre \texttt{Ri} et va l'afficher sur les LEDs.
+
+\subsection{Tests fonctionnels}
+Nous avons testé chaque composant un par un afin de vérifier et valider son comportement avant l'intégration au sein du micro-processeur. 
+
+\subsection{Tests temporels}
+Au fur et à mesure de l'implémentation du micro-processeur, nous avons réalisé des tests temporels afin de vérifier le nombre de bascule et la fréquence maximale. 
+
+Après avoir intégré l'ALU, il s'avère que la fréquence maximal à chuté fortement (-100MHz). L'origine du problème vient de la division qui n'est pas synthétisable directement (pas en utilisant le signe \texttt{/}). 
+
+Au final nous avons obtenu un programme avec +2000 bascules et une fréquence maximale de 114MHz. Le chemin critique comporte l'utilisation du composant RAM. En effet la RAM n'est pas optimisé. Comme évolution, nous pourions utiliser la RAM présente au sein du FPGA directement et ainsi augmenter notre fréquence maximale.
